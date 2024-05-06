@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>CORA</title>
+        <style>
+            body {
+                font-family: monospace;
+            }
+
+            table {
+                border-collapse: collapse;
+                margin: 25px 0;
+                font-size: 0.9em;
+                /*font-family: sans-serif;*/
+                min-width: 400px;
+                box-shadow: 0 0 20px rgba(0, 0, 0, 0.15);
+            }
+
+            table > thead > tr > td > h2 {
+                margin: 0;
+            }
+
+            table > thead > tr > td {
+                font-weight: bold;
+            }
+
+            table > thead > tr {
+                background-color: #009879;
+                color: #ffffff;
+                text-align: left;
+            }
+
+            table > thead > tr > td,
+            table > tbody > tr > td,
+            table > tfoot > tr > td {
+                padding: 12px 15px;
+            }
+
+            table > tbody > tr {
+                border-bottom: 1px solid #dddddd;
+            }
+
+            table > tbody > tr:nth-of-type(even) {
+                background-color: #f3f3f3;
+            }
+
+            table > tbody > tr:last-of-type {
+                border-bottom: 2px solid #009879;
+            }
+
+            table > tbody > tr:hover {
+                font-weight: bold;
+                color: #009879;
+            }
+
+            label {
+                display: flex;
+                flex-direction: column;
+            }
+
+            button {
+                width: 100%;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>Cora</h1>
+        <table>
+            <thead>
+                <tr>
+                    <td colspan="4">
+                        <h2>Images</h2>
+                    </td>
+                </tr>
+                <tr>
+                    <td>Name</td>
+                    <td>Tag</td>
+                    <td>Size</td>
+                    <td></td>
+                </tr>
+            </thead>
+            <tbody id="images-table-body">
+                <tr>
+                    <td colspan="4">Loading ...</td>
+                </tr>
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="3">
+                        <label for="image-install-input">
+                            <input id="image-install-input" placeholder="alpine:latest"/>
+                        </label>
+                    </td>
+                    <td>
+                        <button id="image-install-button" disabled>
+                            Install
+                        </button>
+                    </td>
+                </tr>
+            </tfoot>
+        </table>
+        <script type="module">
+            const api = {
+                images: {
+                    list: () => fetch("/images").then(response => response.json()),
+                    pull: (name, tag) => fetch(`/images?name=${name}&tag=${tag}`, {method: "POST"}).then(response => response.json()),
+                    delete: (name, tag) => fetch(`/images?name=${name}&tag=${tag}`, {method: "DELETE"}).then(response => response.json()),
+                },
+            };
+
+            const imagesTableBody = document.getElementById("images-table-body");
+            const imageInstallInput = document.getElementById("image-install-input");
+            const imageInstallButton = document.getElementById("image-install-button");
+
+
+            const notifyLoading = () => {
+                const tr = document.createElement("tr");
+                const td = document.createElement("td");
+
+                td.colSpan = 4;
+                td.textContent = "Loading ...";
+
+                tr.append(td);
+                imagesTableBody.replaceChildren(tr);
+            };
+
+            imageInstallInput.addEventListener("input", () => {
+                const index = imageInstallInput.value.lastIndexOf(":");
+
+                if (index !== -1) {
+                    imageInstallButton.disabled = false;
+                } else {
+                    imageInstallButton.disabled = true;
+                }
+            });
+
+            imageInstallButton.addEventListener("click", async () => {
+                const index = imageInstallInput.value.lastIndexOf(":");
+
+                if (index !== -1) {
+                    const name = imageInstallInput.value.slice(0, index).trim();
+                    const tag = imageInstallInput.value.slice(index + 1).trim();
+
+                    imageInstallInput.disabled = true;
+                    imageInstallButton.disabled = true;
+
+
+                    try {
+                        notifyLoading();
+                        await api.images.pull(name, tag);
+                    } finally {
+                        await fetchImages();
+                        imageInstallButton.disabled = false;
+                        imageInstallInput.disabled = false;
+                    }
+                }
+            });
+
+            const fetchImages = async () => {
+                const images = await api.images.list();
+
+                if (images.length !== 0) {
+                    const tableRows = [];
+
+                    for (const image of images) {
+                        for (const tag of image.tags) {
+                            const tr = document.createElement("tr");
+                            const nameTd = document.createElement("td");
+                            const tagTd = document.createElement("td");
+                            const sizeTd = document.createElement("td");
+                            const ctrlTd = document.createElement("td");
+
+                            nameTd.textContent = image.name;
+                            tagTd.textContent = tag.name;
+                            sizeTd.textContent = tag.size;
+
+                            const deleteButton = document.createElement("button");
+                            deleteButton.addEventListener("click", async () => {
+                                try {
+                                    notifyLoading();
+                                    await api.images.delete(image.name, tag.name);
+
+                                } finally {
+                                    await fetchImages();
+                                }
+                            });
+                            deleteButton.textContent = "Delete";
+                            ctrlTd.append(deleteButton);
+
+                            tr.append(nameTd, tagTd, sizeTd, ctrlTd);
+                            tableRows.push(tr);
+                        }
+                    }
+
+                    imagesTableBody.replaceChildren(...tableRows);
+                } else {
+                    const tr = document.createElement("tr");
+                    const td = document.createElement("td");
+
+                    td.colSpan = 4;
+                    td.textContent = "No images installed";
+
+                    tr.append(td);
+                    imagesTableBody.replaceChildren(tr);
+                }
+            };
+
+            await fetchImages();
+        </script>
+    </body>
+</html>
