@@ -174,7 +174,7 @@ export async function startServer(options: StartServerOptions) {
                 }
 
                 const ignoredParameterNames = Object.keys(ignoredParameters);
-                const imageNameHash = await hashString("SHA-1", name);
+                const imageNameHash = await hashString("SHA-1", imageName);
 
                 let manifest = await (
                     fetchImageManifest(workspace, imageTag, { imageNameHash })
@@ -266,7 +266,7 @@ export async function startServer(options: StartServerOptions) {
                 }
 
                 const ignoredParameterNames = Object.keys(ignoredParameters);
-                const imageNameHash = await hashString("SHA-1", name);
+                const imageNameHash = await hashString("SHA-1", imageName);
 
                 const manifest = (
                     await fetchImageManifest(workspace, imageTag, { imageNameHash })
